@@ -293,7 +293,6 @@ body::after {
 .nobles {
   padding: 2px 0;
 }
-.noble.img,
 .noble {
   transition: transform 0.2s;
 }

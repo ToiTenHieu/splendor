@@ -1,5 +1,5 @@
 *.log
-art-src/
+assets_*/
 node_modules/
 data/
 tools/tuned.json

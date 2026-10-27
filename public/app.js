@@ -51,8 +51,17 @@ const TABLES = [
   { id: "oak", c1: "#946037", c2: "#5e3b1f" },
   { id: "navy", c1: "#2a4f8a", c2: "#12274a" },
   { id: "marble", c1: "#7a8190", c2: "#3f4450" },
+  { id: "sky", c1: "#7cc3e3", c2: "#0f5a8f" },
 ];
 const DECKS = [
+  {
+    id: "bga",
+    k: [
+      ["#2f8a55", "#103d24"],
+      ["#c9952a", "#5e3c08"],
+      ["#2f63c4", "#0f2350"],
+    ],
+  },
   {
     id: "classic",
     k: [
@@ -86,13 +95,15 @@ const DECKS = [
     ],
   },
 ];
-let prefs = { table: "felt", deck: "classic", art: "photo", lang: "vi" };
+let prefs = { table: "felt", deck: "bga", art: "photo", lang: "vi" };
 try {
   Object.assign(
     prefs,
     JSON.parse(localStorage.getItem("splendor_prefs") || "{}"),
   );
 } catch (e) {}
+let noImg = false; // ảnh BGA tải lỗi -> dùng tranh SVG
+const useImg = () => prefs.art === "photo" && !noImg;
 const currentLang = () =>
   I18N.normalizeLang(
     (S && S.lobby && S.lobby.settings && S.lobby.settings.lang) ||
@@ -104,6 +115,7 @@ const VI = new Proxy({}, { get: (_, c) => T("color." + c) });
 function applyPrefs() {
   document.body.dataset.table = prefs.table;
   document.body.dataset.deck = prefs.deck;
+  document.body.dataset.art = useImg() ? "photo" : "svg";
   const lang = currentLang();
   document.documentElement.lang = lang;
   if (FX.setLang) FX.setLang(lang);
@@ -577,21 +589,30 @@ function costCircles(card) {
     .map((c) => `<div class="cost ${c}">${card.cost[c]}</div>`)
     .join("");
 }
-// ---------- ảnh thẻ thật (public/art, cắt bằng tools/build_art.py); ảnh nào lỗi thì quay về tranh SVG ----------
-const NOIMG = new Set();
+// ---------- ảnh gốc BGA (public/bga, tải bằng crawl_bga.js); ảnh lỗi thì quay về tranh SVG ----------
+// cards.jpg: lưới 6x6, hàng = màu (lam, đen, đỏ, lục, trắng, mặt sau), cột 1-2 cấp 1 (mỏ), 3-4 cấp 2, 5-6 cấp 3.
+// nobles.png: lưới 5x3 chân dung (đã in sẵn 3 điểm). Chi phí/điểm thẻ vẽ đè bằng HTML như tranh SVG.
+// Thẻ Phương Đông không có trong cards.jpg nên vẫn dùng tranh SVG.
+const BGA_ROW = { blue: 0, black: 1, red: 2, green: 3, white: 4 };
+const BGA_COL = {};
+for (const c of D.cards) {
+  const k = D.cards.filter(
+    (x) => x.bonus === c.bonus && x.level === c.level && x.id < c.id,
+  ).length;
+  BGA_COL[c.id] = (c.level - 1) * 2 + (k % 2);
+}
 function probeArt() {
-  const check = (key, src) => {
+  for (const f of ["cards.jpg", "nobles.png", "tokens.png"]) {
     const im = new Image();
     im.onerror = () => {
-      NOIMG.add(key);
+      if (noImg) return;
+      noImg = true;
+      applyPrefs();
       render();
     };
-    im.src = src;
-  };
-  CARDS.forEach((c) => check("c" + c.id, `art/c${c.id}.jpg`));
-  NOBLES.forEach((n) => check("n" + n.id, `art/n${n.id}.jpg`));
+    im.src = "bga/" + f;
+  }
 }
-const useImg = (key) => prefs.art === "photo" && !NOIMG.has(key);
 function orientExtra(c) {
   if (!c.orient) return "";
   const bits = [];
@@ -608,9 +629,11 @@ function cardHtml(id, attrs = "", cls = "", inner = "") {
     cid = cls.includes("nocid") ? "" : `data-cid="${id}"`;
   const bonus = c.bonus || "gold";
   const bonusArt = c.virtualGold ? "gold" : c.bonus;
-  if (!c.orient && useImg("c" + id))
-    return `<div class="card img b-${bonus} ${cls}" style="background-image:url(art/c${id}.jpg)" ${cid} ${attrs}>${inner}</div>`;
-  return `<div class="card b-${bonus} art-${c.level}-${bonusArt}-${id % 2} ${c.orient ? "orient" : ""} ${c.virtualGold ? "virtual" : ""} ${cls}" ${cid} ${attrs}>
+  const art =
+    !c.orient && useImg()
+      ? `bga" style="background-position:${BGA_COL[id] * 20}% ${BGA_ROW[c.bonus] * 20}%`
+      : `art-${c.level}-${bonusArt}-${id % 2}`;
+  return `<div class="card b-${bonus} ${c.orient ? "orient" : ""} ${c.virtualGold ? "virtual" : ""} ${cls} ${art}" ${cid} ${attrs}>
     <div class="top"><span class="pts">${c.points || ""}</span>${c.copy ? '<span class="copybonus">✦</span>' : gemSvg(copySafe(c, bonus), 28)}</div>
     <div class="costs">${c.discard ? discCostCircles(c) : costCircles(c)}</div><i class="lvm">${"•".repeat(c.level)}</i>${orientExtra(c)}${inner}</div>`;
 }
@@ -644,8 +667,11 @@ function nobleHtml(id, pick, owned) {
   const n = NOBLES[id],
     pk = `${pick ? "pick" : ""}" data-nid="${id}" ${pick ? `data-a="noble" data-id="${id}"` : ""}`,
     prog = owned ? "" : nobleProg(n);
-  if (useImg("n" + id))
-    return `<div class="noble img ${pk} style="background-image:url(art/n${id}.jpg)">${prog}</div>`;
+  if (useImg())
+    return `<div class="noble bga ${pk} style="background-position:${(id % 5) * 25}% ${Math.floor(id / 5) * 50}%">
+    <div class="nr">${COLORS.filter((c) => n.req[c])
+      .map((c) => `<div class="cost ${c}">${n.req[c]}</div>`)
+      .join("")}</div>${prog}</div>`;
   return `<div class="noble nart-${id} ${pk}><div class="nside">
     <span class="np">${n.points}</span>
     <div class="nr">${COLORS.filter((c) => n.req[c])
@@ -1272,7 +1298,7 @@ function settingsHtml() {
     <div class="lbl">${esc(T("settings.table"))}</div>
     <div class="swatches">${TABLES.map((t) => `<button class="sw ${prefs.table === t.id ? "on" : ""}" data-a="pref" data-k="table" data-v="${t.id}" style="--s1:${t.c1};--s2:${t.c2}"><i></i>${esc(T("table." + t.id))}</button>`).join("")}</div>
     <div class="lbl">${esc(T("settings.deck"))}</div>
-    <div class="swatches">${DECKS.map((d) => `<button class="sw deck ${prefs.deck === d.id ? "on" : ""}" data-a="pref" data-k="deck" data-v="${d.id}" ><span class="mb l1 card back" style="--k1:${d.k[0][0]};--k2:${d.k[0][1]}"></span><span class="mb l2 card back" style="--k1:${d.k[1][0]};--k2:${d.k[1][1]}"></span><span class="mb l3 card back" style="--k1:${d.k[2][0]};--k2:${d.k[2][1]}"></span>${esc(T("deck." + d.id))}</button>`).join("")}</div>
+    <div class="swatches">${DECKS.map((d) => `<button class="sw deck d-${d.id} ${prefs.deck === d.id ? "on" : ""}" data-a="pref" data-k="deck" data-v="${d.id}" ><span class="mb l1 card back" style="--k1:${d.k[0][0]};--k2:${d.k[0][1]}"></span><span class="mb l2 card back" style="--k1:${d.k[1][0]};--k2:${d.k[1][1]}"></span><span class="mb l3 card back" style="--k1:${d.k[2][0]};--k2:${d.k[2][1]}"></span>${esc(T("deck." + d.id))}</button>`).join("")}</div>
     <div class="lbl">${esc(T("settings.art"))}</div>
     <div class="swatches"><button class="sw txt ${prefs.art === "photo" ? "on" : ""}" data-a="pref" data-k="art" data-v="photo">${esc(T("settings.photo"))}</button><button class="sw txt ${prefs.art === "svg" ? "on" : ""}" data-a="pref" data-k="art" data-v="svg">${esc(T("settings.svg"))}</button></div>
     <div class="lbl">${esc(T("settings.music"))}</div>

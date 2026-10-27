@@ -435,26 +435,19 @@
           0 0 18px #46c07a99,
           0 4px 10px #000a;
       }
-      /* thẻ dùng ảnh thật: ảnh đã in sẵn điểm/chi phí (cùng tỉ lệ 1:1.4 với thẻ nên giãn vừa khít) */
-      .card.img {
-        background-color: #ddd;
-        background-size: 100% 100%;
-        box-shadow: 0 4px 10px #000a;
-        border-color: #0009;
+      /* ảnh gốc BGA: sprite, vị trí ô đặt inline trong app.js (tỉ lệ ô ~1:1.39, gần khít thẻ 1:1.4) */
+      .card.bga {
+        background-image: url(bga/cards.jpg);
+        background-size: 600% 600%;
       }
-      .card.img.afford {
-        box-shadow:
-          0 0 0 3px var(--good),
-          0 0 18px #46c07a99,
-          0 4px 10px #000a;
-      }
-      .noble.img {
-        background-size: 100% 100%;
+      .noble.bga {
+        background-image: url(bga/nobles.png);
+        background-size: 500% 300%;
         box-shadow:
           inset 0 0 0 2px #d8b25a,
           0 4px 10px #000a;
       }
-      .noble.img.pick {
+      .noble.bga.pick {
         box-shadow:
           inset 0 0 0 2px #d8b25a,
           0 0 0 3px var(--good),

@@ -1,5 +1,5 @@
 'use strict';
-// Âm thanh + nhạc nền kiểu Phục Hưng (tự tổng hợp bằng WebAudio, không cần file) và hoạt ảnh thao tác.
+// Âm thanh + nhạc nền kiểu Phục Hưng (tự tổng hợp bằng WebAudio; vài tiếng dùng file gốc BGA) và hoạt ảnh thao tác.
 const FX = (function () {
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   let lang = 'vi';
@@ -34,7 +34,18 @@ const FX = (function () {
     const vg = ctx.createGain(); vg.gain.value = 0.42; verb.connect(vg); vg.connect(master);
     musicBus.connect(master); musicBus.connect(verb);
     sfxBus.connect(master); const sv = ctx.createGain(); sv.gain.value = 0.35; sfxBus.connect(sv); sv.connect(verb);
+    loadSamples();
     return true;
+  }
+  // tiếng gốc BGA (public/bga); chưa tải xong hoặc lỗi thì dùng tiếng tự tổng hợp trong SFX
+  const SAMPLES = { tok: ['chipdrop2'], clink: ['chipdrop', 'chipdrop2'], coin: ['chipdrop'], noble: ['buynoble'], turn: ['ping'] }, BUF = {};
+  function loadSamples() {
+    for (const n of new Set(Object.values(SAMPLES).flat()))
+      fetch(`bga/splendor_${n}.mp3`).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject())).then((b) => ctx.decodeAudioData(b)).then((b) => { BUF[n] = b; }).catch(() => {});
+  }
+  function sample(name) {
+    const L = (SAMPLES[name] || []).filter((n) => BUF[n]); if (!L.length) return false;
+    const s = ctx.createBufferSource(); s.buffer = BUF[L[Math.floor(Math.random() * L.length)]]; s.connect(sfxBus); s.start(); return true;
   }
   function noiseBuf() {
     if (noiseBuf.b) return noiseBuf.b;
@@ -216,7 +227,7 @@ const FX = (function () {
   };
   function sfx(name, delay) {
     if (!sfxOn || !ctx || ctx.state !== 'running' || !SFX[name]) return;
-    if (delay) setTimeout(() => sfx(name), delay); else try { SFX[name](); } catch (e) { console.warn('sfx', name, e); }
+    if (delay) setTimeout(() => sfx(name), delay); else try { if (!sample(name)) SFX[name](); } catch (e) { console.warn('sfx', name, e); }
   }
 
   function setMusic(on) {

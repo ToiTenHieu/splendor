@@ -15,7 +15,7 @@ const { tr, normalizeLang, LANGS } = require('./public/i18n.js');
 const PORT = process.env.PORT || 3000;
 const PUB = path.join(__dirname, 'public');
 const rooms = new Map();
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.webmanifest': 'application/manifest+json' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.mp3': 'audio/mpeg', '.webmanifest': 'application/manifest+json' };
 const TIMERS = [0, 45, 60, 90, 120, 180];
 const ROOM_TTL = 3 * 86400e3;
 
@@ -346,7 +346,7 @@ const server = http.createServer((req, res) => {
   if (!f.startsWith(PUB)) { res.writeHead(403); return res.end(); }
   fs.readFile(f, (err, data) => {
     if (err) { res.writeHead(404); return res.end('Not found'); }
-    const art = url.pathname.startsWith('/art/'); // ảnh thẻ không đổi: cho trình duyệt giữ cache, tránh tải lại mỗi lần vẽ
+    const art = url.pathname.startsWith('/art/') || url.pathname.startsWith('/bga/'); // ảnh/âm thanh không đổi: cho trình duyệt giữ cache, tránh tải lại mỗi lần vẽ
     res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream', 'Cache-Control': art ? 'public, max-age=86400' : 'no-cache' });
     res.end(data);
   });
